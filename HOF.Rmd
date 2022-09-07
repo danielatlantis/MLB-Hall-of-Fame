@@ -1,0 +1,333 @@
+---
+title: "Hall of Fame Expectancy"
+output: pdf_document
+author: "Daniel Antantis"
+---
+
+```{r}
+library(tidyverse)
+library(rvest)
+library(dplyr)
+library(MASS)
+library(glmnet)
+```
+
+```{r}
+hit_data = read.csv("~/Documents/MLB Project/allhitters.csv")
+View(hit_data)
+```
+
+```{r}
+hit_mlb = hit_data %>% 
+  na.omit() %>% 
+  group_by(Age) %>% 
+  summarise(
+    HR = mean(HR),
+    RBI = mean(RBI),
+    BA = mean(BA),
+    OBP = mean(OBP),
+    size = n()
+  )
+View(hit_mlb)
+hit_mlb_adjusted = hit_mlb %>% 
+  filter(size > 500)
+```
+
+```{r}
+ggplot(hit_mlb, aes(Age, BA)) + geom_point() + ggtitle("Batting Average vs Age") + ylab("Batting Average") + geom_line()
+ggplot(hit_mlb_adjusted, aes(Age, BA)) + geom_point() + ggtitle("Batting Average vs Age (Adjusted)") + ylab("Batting Average") + geom_line()
+```
+
+```{r}
+ggplot(hit_mlb, aes(Age, HR)) + geom_point() + ggtitle("Homeruns vs Age") + ylab("Homeruns") + geom_line()
+ggplot(hit_mlb_adjusted, aes(Age, HR)) + geom_point() + ggtitle("Homeruns vs Age (Adjusted)") + ylab("Homeruns") + geom_line()
+```
+
+```{r}
+fit = lm(BA ~ Age, data = hit_mlb)
+summary(fit)
+fit2 = lm(BA ~ Age, data = hit_mlb_adjusted)
+summary(fit2)
+```
+
+```{r}
+fit3 = lm(HR ~ Age, data = hit_mlb_adjusted)
+summary(fit3)
+```
+
+```{r}
+pit_data = read.csv("~/Documents/MLB Project/allpitchers.csv")
+View(pit_data)
+```
+
+```{r}
+pit_mlb = pit_data %>% 
+  na.omit() %>% 
+  group_by(Age) %>% 
+  summarise(
+    ERA = mean(ERA),
+    SO = mean(SO),
+    WHIP = mean(WHIP),
+    size = n()
+  )
+View(pit_mlb)
+pit_mlb_adjusted = pit_mlb %>% 
+  filter(size > 500)
+View(pit_mlb_adjusted)
+```
+
+```{r}
+ggplot(pit_mlb, aes(Age, ERA)) + geom_point() + ggtitle("Earned Run Average (ERA) vs Age") + ylab("ERA") + geom_line()
+ggplot(pit_mlb_adjusted, aes(Age, ERA)) + geom_point() + ggtitle("Earned Run Average (ERA) vs Age (Adjusted)") + ylab("ERA") + geom_line()
+```
+```{r}
+pit_fit = lm(ERA ~ Age, data = pit_mlb_adjusted)
+summary(pit_fit)
+```
+
+```{r}
+ggplot(pit_mlb, aes(Age, SO)) + geom_point() + ggtitle("Strikeouts (SO) vs Age") + ylab("Strikeouts") + geom_line()
+ggplot(pit_mlb_adjusted, aes(Age, SO)) + geom_point() + ggtitle("Strikeouts (SO) vs Age (Adjusted)") + ylab("Strikeouts") + geom_line()
+```
+**Group by Player**
+```{r}
+play_mlb = hit_data %>% 
+  na.omit() %>% 
+  group_by(name) %>% 
+  filter(AB > 200) %>% 
+  summarise(
+    HR = sum(HR),
+    RBI = sum(RBI),
+    H = sum(H),
+    BA = mean(BA),
+    OBP = mean(OBP),
+    SB = sum(SB),
+    BB = sum(BB),
+    SLG = mean(SLG)
+  )
+```
+
+**Read in Hall of Fame**
+```{r}
+url = "https://www.baseball-reference.com/awards/hof_batting.shtml"
+tbl = url %>% 
+  read_html() %>% 
+  html_nodes('table') %>% 
+  html_table()
+hof = data.frame(tbl)
+hof = hof %>% filter(AB > 3000)
+```
+
+**Filter for players eligible for HOF**
+```{r}
+hof_eligible = hit_data %>% 
+  na.omit() %>% 
+  group_by(name) %>% 
+  filter(AB > 200) %>% 
+  summarise(
+    Retirement_Year = max(Year),
+    AB = sum(AB),
+    HR = sum(HR),
+    RBI = sum(RBI),
+    H = sum(H),
+    BA = mean(BA),
+    OBP = mean(OBP),
+    SB = sum(SB),
+    BB = sum(BB),
+    IBB = sum(IBB),
+    SLG = mean(SLG),
+    OPS = mean(OPS),
+    MVP = sum(ifelse(grepl("MVP-1,", Awards, fixed = TRUE), 1, 0)),
+    All_star = sum(ifelse(grepl("AS", Awards, fixed = TRUE), 1, 0)),
+    Gold_glove = sum(ifelse(grepl("GG", Awards, fixed = TRUE), 1, 0)),
+    Silver_slugger = sum(ifelse(grepl("SS", Awards, fixed = TRUE), 1, 0))
+  ) %>% 
+  filter(Retirement_Year < 2016)
+View(hof_eligible)
+```
+
+**Merge dataframes**
+```{r}
+hof_both = data.frame(hof_eligible$name[hof_eligible$name %in% hof$Name])
+hof_both = hof_both %>% 
+  summarise(name = hof_eligible.name.hof_eligible.name..in..hof.Name.)
+hof_both$hof = 1
+View(hof_both)
+```
+
+**Merge players with stats (excluding players banned from HOF**
+```{r}
+raw_data = hof_eligible %>% 
+  left_join(hof_both, by = "name") 
+model_data = hof_eligible %>% 
+  left_join(hof_both, by = "name") %>% 
+  filter(!(name == "Barry Bonds" | name == "Pete Rose" | name == "Mark McGwire"))
+model_data[is.na(model_data)] = 0
+model_data$ISO = model_data$SLG - model_data$BA
+View(model_data)
+```
+
+**Split into training and testing sets**
+```{r}
+attach(model_data)
+sample_size <- floor(0.8 * nrow(model_data))
+set.seed(111)
+train <- sample(seq_len(nrow(model_data)), size = sample_size)
+model_train = model_data[train,]
+model_test = model_data[-train,]
+```
+
+**Linear Model**
+```{r}
+LDA.fit = lda(hof ~ HR + AB + BA + OPS + BB + MVP + All_star + Gold_glove + Silver_slugger, data = model_train, subset = train)
+LDA.pred = predict(LDA.fit, model_test)
+mean(LDA.pred$class != model_test$hof)
+```
+
+```{r}
+GLM.fit = glm(hof ~ HR + AB + BA + OPS + BB + ISO + MVP + All_star + Gold_glove + Silver_slugger, data = model_train, family = binomial, subset = train)
+GLM.probs = predict(GLM.fit, model_test, type = "response")
+GLM.pred = rep(0, length(GLM.probs))
+GLM.pred[GLM.probs > 0.5] = 1
+mean(GLM.pred != model_test$hof)
+```
+
+
+```{r}
+QDA.fit = qda(hof ~ HR + AB + BA + OPS + BB + MVP + All_star + Gold_glove + Silver_slugger, data = model_train, subset = train)
+QDA.pred = predict(QDA.fit, model_test)
+mean(QDA.pred$class != model_test$hof)
+```
+
+```{r}
+train.x = model.matrix(hof ~ HR + AB + BA + OPS + BB + MVP + All_star + Gold_glove + Silver_slugger, data = model_train)
+train.hof = model_train$hof
+test.x = model.matrix(hof ~ HR + AB + BA + OPS + BB + MVP + All_star + Gold_glove + Silver_slugger, data = model_test)
+test.hof = model_test$hof
+
+ridge.fit = cv.glmnet(train.x, train.hof, alpha = 0)
+ridge.lambda = ridge.fit$lambda.min
+
+ridge.probs = predict(ridge.fit, s = ridge.lambda, newx = test.x)
+ridge.pred = rep(0, length(ridge.probs))
+ridge.pred[ridge.probs > 0.5] = 1
+mean(ridge.pred != model_test$hof)
+```
+
+```{r}
+ridge.coef = predict(ridge.fit, type = "coefficients", s = ridge.lambda)
+ridge.coef
+```
+
+**Which players were classified incorrectly**
+```{r}
+incorrect_name = ifelse(GLM.pred != model_test$hof, model_test$name, NA)
+incorrect_pred = ifelse(GLM.pred != model_test$hof, ridge.pred, NA)
+incorrect = data.frame(incorrect_name, incorrect_pred)
+incorrect = incorrect %>% na.omit()
+View(incorrect)
+```
+
+**Test model generalization**
+```{r}
+total.probs = predict(GLM.fit, model_data, type = "response")
+total.pred = rep(0, length(total.probs))
+total.pred[total.probs > 0.5] = 1
+name = ifelse(total.pred != model_data$hof, model_data$name, NA)
+pred = ifelse(total.pred != model_data$hof, total.pred, NA)
+prob = ifelse(total.pred != model_data$hof, round(total.probs,3), NA)
+end1 = data.frame(name, pred, prob)
+end1 = end1 %>% na.omit()
+end1_data = end1 %>% left_join(model_data, by = "name") %>% mutate_all(~replace(., is.na(.), 0))
+View(end1_data)
+nrow(end1)
+name = ifelse(total.pred == 1 & model_data$hof == 1, model_data$name, NA)
+pred = ifelse(total.pred == 1 & model_data$hof == 1, total.pred, NA)
+prob = ifelse(total.pred == 1 & model_data$hof == 1, round(total.probs,3), NA)
+end2 = data.frame(name, pred, prob)
+end2 = end2 %>% na.omit()
+end2_data = end2 %>% left_join(model_data, by = "name") %>% mutate_all(~replace(., is.na(.), 0))
+View(end2_data)
+nrow(end2)
+```
+
+
+**GLM Deep Dive**
+```{r}
+GLM.fit$coefficients
+summary(GLM.fit)
+```
+
+
+```{r}
+full_mlb = play_mlb %>% left_join(hof_both, by = "name") %>% mutate_all(~replace(., is.na(.), 0))
+View(full_mlb)
+```
+
+```{r}
+full.probs = predict(GLM.fit, full_mlb, type = "response")
+full.pred <-  rep(0, length(full.probs))
+full.pred[full.probs > 0.5] = 1
+full_name = ifelse(full.pred != full_mlb$hof, full_mlb$name, NA)
+full_prediction = ifelse(full.pred != full_mlb$hof, full.pred, NA)
+full = data.frame(full_name, full_prediction)
+full = full %>% na.omit()
+View(full)
+```
+
+```{r}
+full.pred
+```
+
+
+```{r}
+new_mlb = model_data
+new_mlb$hof = as.factor(model_data$hof)
+View(new_mlb)
+```
+
+```{r}
+attach(new_mlb)
+sample_size2 <- floor(0.6 * nrow(new_mlb))
+set.seed(111)
+train2 <- sample(seq_len(nrow(new_mlb)), size = sample_size2)
+new_train = new_mlb[train2,]
+new_test = new_mlb[-train2,]
+```
+
+
+```{r}
+new.fit = glm(hof ~ HR + BA + SB, data = new_train, family = binomial)
+summary(new.fit)
+```
+
+```{r}
+new.probs = predict(new.fit, new_mlb, type = "response")
+new.pred = rep(0, length(new.probs))
+new.pred[new.probs > 0.5] = 1
+mean(new.pred != new_mlb$hof)
+new_name = ifelse(new.pred != new_mlb$hof, new_mlb$name, NA)
+new_prediction = ifelse(new.pred != new_mlb$hof, new.pred, NA)
+new = data.frame(new_name, new_prediction)
+new = new %>% na.omit()
+View(new)
+View(new_test)
+```
+
+**Would the model incorrectly predict players who would be in HOF if not banned**
+```{r}
+banned  = raw_data %>% 
+  filter(name == "Barry Bonds" | name == "Mark McGwire" | name == "Pete Rose")
+View(banned)
+GLM.probs = predict(GLM.fit, banned, type = "response")
+GLM.pred = rep(0, length(GLM.probs))
+GLM.pred[GLM.probs > 0.5] = 1
+incorrect_ban_name = ifelse(GLM.pred != banned$hof, banned$name, NA)
+incorrect_ban_pred = ifelse(GLM.pred != banned$hof, GLM.pred, NA)
+incorrect_ban = data.frame(incorrect_ban_name, incorrect_ban_pred)
+incorrect_ban = incorrect_ban %>% na.omit()
+View(incorrect_ban)
+```
+
+
+

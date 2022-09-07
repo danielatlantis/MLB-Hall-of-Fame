@@ -1,0 +1,6 @@
+# Hall-of-Fame
+
+My goal for this project was to try and understand how the MLB decides whether or not to select a player for the Hall of Fame and if I could replicate their selection stragey by building models using statistics. All of the data being used has been pulled from Baseball Reference which includes a list of hall of fame players and a list of players individual season statistics. 
+## Data Wrangling
+
+I began with every player's season statistics and since I did not care about how well a player performed over any given season I aggregated the seasons together in order to obtain a career statistical overview. Next was to filter the resulting dataframe so that only players eligible for the hall of fame would be included in the model, meaning they are not currently playing and they retired before 2016. This project is only considering hitters, therefore another filter was applied to both the player list and hall of fame player list so that players with more than 3000 at-bats were considered. Another factor that had to be considered was how I was going to represent awards for each player, so I had to search for the substrings within the awards column to obtain the number of awards each player recieved throughout their career.

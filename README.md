@@ -7,4 +7,8 @@ I began with every player's season statistics and since I did not care about how
 
 ## Testing Models
 
-This is a classifcation problem so a couple models stood out for me to immediately try to explor which include LDA, GLM, and Ridge. After conducting multiple tests and visualizing how exactly models such as GLM and Ridge are weighing the coefficients of certain predictors, it guided me to the model used in my code which included some very common baseball statistics and also all of the award categories (MVP, All-Star, Golden Gloves, and Silver Sluggers).
+This is a classifcation problem so a couple models stood out for me to immediately try to explor which include LDA, GLM, and Ridge. After conducting multiple tests and visualizing how exactly models such as GLM and Ridge are weighing the coefficients of certain predictors, it guided me to the model used in my code which included some very common baseball statistics and also all of the award categories (MVP, All-Star, Golden Gloves, and Silver Sluggers). 
+
+## Model Analysis
+
+My main focus was determining which players were being incorrectly classified and investigate similarities between the players. Players who accrewed a large number of awards such as All-Star game selections and MVP's were often incorrectly classified as Hall of Famers due to the high number of players in the Hall of Fame with those same awards. Players who are in the Hall of Fame who were classified as not in the Hall of Fame often lacked very high on-base plus slugging (OPS) which was the most heavily weighted coefficient in the GLM model. I also was interested in if perhaps lowering the default threshold of the probability a player is predicted to be in the Hall of Fame from 0.5 to 0.4 and what I discovered was that the model became more accurate in its predictions. This result seems intuitive since the vast majority of baseball connoisseurs can very rarily agree on if a player is "Hall of Fame worthy."

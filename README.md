@@ -1,5 +1,7 @@
 # Hall-of-Fame
 
+<img src="https://img.mlbstatic.com/mlb-images/image/upload/t_2x1/t_w1536/mlb/ddd5nedyzlfhzwkd74cv.jpg">
+
 My goal for this project was to try and understand how the MLB decides whether or not to select a player for the Hall of Fame and if I could replicate their selection strategy by building models using statistics. All of the data being used has been pulled from Baseball Reference which includes a list of hall of fame players and a list of players individual season statistics. 
 ## Data Wrangling
 

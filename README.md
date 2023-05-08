@@ -1,4 +1,4 @@
-# Hall-of-Fame
+# MLB Hall of Fame
 
 <img src="https://img.mlbstatic.com/mlb-images/image/upload/t_2x1/t_w1536/mlb/ddd5nedyzlfhzwkd74cv.jpg">
 
